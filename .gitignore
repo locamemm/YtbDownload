@@ -1,0 +1,26 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.kotlin
+
+# iOS / Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xcuserstate
+*.xcworkspace
+!default.xcworkspace
+Payload/
+*.ipa
+ios/build/
+
+# General
+*.log
