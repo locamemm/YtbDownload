@@ -60,12 +60,12 @@ enum class MediaFormat(
         mimeType = "audio/mpeg"
     ),
     AUDIO_M4A(
-        formatKey = "m4a",
-        label = "M4A",
-        subLabel = "AAC • Crisp Audio",
+        formatKey = "aac",
+        label = "M4A / AAC",
+        subLabel = "Apple Crisp Audio • AAC",
         type = FormatType.AUDIO,
-        fileExtension = "m4a",
-        mimeType = "audio/x-m4a"
+        fileExtension = "aac",
+        mimeType = "audio/aac"
     ),
     AUDIO_WAV(
         formatKey = "wav",

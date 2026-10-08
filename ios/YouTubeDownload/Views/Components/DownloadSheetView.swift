@@ -251,8 +251,8 @@ public struct DownloadSheetView: View {
             VStack(spacing: 10) {
                 let ext = fileURL.pathExtension.lowercased()
 
-                // Audio Playback Preview for M4A / MP3 / WAV
-                if ext == "m4a" || ext == "mp3" || ext == "wav" {
+                // Audio Playback Preview for AAC / M4A / MP3 / WAV
+                if ext == "aac" || ext == "m4a" || ext == "mp3" || ext == "wav" {
                     Button(action: {
                         if isPlayingAudio {
                             audioPlayer?.pause()

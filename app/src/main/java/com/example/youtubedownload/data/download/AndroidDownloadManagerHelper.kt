@@ -41,6 +41,7 @@ object AndroidDownloadManagerHelper {
             val cleanExt = extension.removePrefix(".").lowercase()
             val resolvedMimeType = when (cleanExt) {
                 "m4a" -> "audio/x-m4a"
+                "aac" -> "audio/aac"
                 "mp3" -> "audio/mpeg"
                 "wav" -> "audio/wav"
                 "mp4" -> "video/mp4"
