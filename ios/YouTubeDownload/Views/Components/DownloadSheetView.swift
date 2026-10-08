@@ -14,7 +14,7 @@ public struct DownloadSheetView: View {
     @State private var showDocumentPicker: Bool = false
     @State private var documentTargetURL: URL? = nil
     @State private var documentSavedNotice: String? = nil
-    @State private var audioPlayer: AVPlayer? = nil
+    @State private var audioPlayer: AVAudioPlayer? = nil
     @State private var isPlayingAudio: Bool = false
 
     public var body: some View {
@@ -117,7 +117,7 @@ public struct DownloadSheetView: View {
                 }
             }
             .onDisappear {
-                audioPlayer?.pause()
+                audioPlayer?.stop()
                 isPlayingAudio = false
             }
         }
@@ -264,6 +264,22 @@ public struct DownloadSheetView: View {
                     .foregroundColor(AppTheme.cyanAccent)
             }
 
+            let attr = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+            let sizeBytes = (attr?[.size] as? Int64) ?? 0
+            let sizeMB = Double(sizeBytes) / (1024.0 * 1024.0)
+
+            HStack(spacing: 8) {
+                Text(fileName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .lineLimit(1)
+                Spacer()
+                Text(String(format: "%.2f MB", sizeMB))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(AppTheme.mintAccent)
+            }
+            .padding(.horizontal, 6)
+
             VStack(spacing: 10) {
                 let ext = fileURL.pathExtension.lowercased()
 
@@ -271,14 +287,19 @@ public struct DownloadSheetView: View {
                 if ext == "aac" || ext == "m4a" || ext == "mp3" || ext == "wav" {
                     Button(action: {
                         if isPlayingAudio {
-                            audioPlayer?.pause()
+                            audioPlayer?.stop()
                             isPlayingAudio = false
                         } else {
-                            if audioPlayer == nil {
-                                audioPlayer = AVPlayer(url: fileURL)
+                            do {
+                                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+                                try AVAudioSession.sharedInstance().setActive(true)
+                                audioPlayer = try AVAudioPlayer(contentsOf: fileURL)
+                                audioPlayer?.prepareToPlay()
+                                audioPlayer?.play()
+                                isPlayingAudio = true
+                            } catch {
+                                print("Audio error: \(error.localizedDescription)")
                             }
-                            audioPlayer?.play()
-                            isPlayingAudio = true
                         }
                     }) {
                         HStack {

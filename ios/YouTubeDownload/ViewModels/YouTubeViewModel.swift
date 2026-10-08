@@ -100,8 +100,10 @@ public final class YouTubeViewModel: ObservableObject {
                 }
 
                 // 2. Video / Audio Conversion via Loader.to
-                // For M4A audio, request clean "aac" stream from loader.to to bypass its broken m4a encoder
-                let serverFormat = (format.id == "m4a" || format.id == "aac") ? "aac" : format.id
+                // If user requests M4A, we request MP3 (320kbps pristine audio from loader.to)
+                // then convert into certified Apple M4A container with AVAudioFile / CoreAudio
+                let isM4A = (format.id == "m4a" || format.fileExtension == "m4a")
+                let serverFormat = isM4A ? "mp3" : format.id
                 self.conversionState = .analyzing("Requesting \(format.label) media stream...")
                 let startResult = try await NetworkService.shared.startConversion(
                     format: serverFormat,
@@ -142,7 +144,8 @@ public final class YouTubeViewModel: ObservableObject {
                 // 4. Download file to iOS Sandbox / Documents
                 let prefix = "[\(format.id.uppercased())]"
                 let rawName = "\(prefix) \(video.title)"
-                let targetFileName = DownloadManager.sanitizeFileName(rawName, extension: format.fileExtension)
+                let initialExt = isM4A ? "mp3" : format.fileExtension
+                let targetFileName = DownloadManager.sanitizeFileName(rawName, extension: initialExt)
 
                 self.conversionState = .downloading(progress: 0.05, status: "Downloading file...")
 
@@ -157,7 +160,7 @@ public final class YouTubeViewModel: ObservableObject {
                             Task {
                                 var finalURL = downloadedURL
                                 // If format is M4A, package into certified Apple M4A container
-                                if format.type == .audio && (format.fileExtension == "m4a" || format.id == "m4a" || format.id == "aac") {
+                                if isM4A {
                                     finalURL = await DownloadManager.shared.convertToNativeM4A(sourceURL: downloadedURL)
                                 }
                                 await MainActor.run {

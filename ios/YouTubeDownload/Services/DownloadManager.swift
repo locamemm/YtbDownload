@@ -135,35 +135,76 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
 
     // MARK: - Native M4A Remuxing / Transcoding (Apple Certified)
     public func convertToNativeM4A(sourceURL: URL) async -> URL {
-        let asset = AVURLAsset(url: sourceURL)
         let targetM4A = sourceURL.deletingPathExtension().appendingPathExtension("m4a")
         let tempTarget = downloadsDirectory.appendingPathComponent("remux_\(UUID().uuidString).m4a")
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-            return sourceURL
-        }
+        // 1. Primary: CoreAudio AVAudioFile PCM transcoding to pristine AAC M4A
+        do {
+            let inputFile = try AVAudioFile(forReading: sourceURL)
+            let inFormat = inputFile.processingFormat
 
-        exportSession.outputURL = tempTarget
-        exportSession.outputFileType = .m4a
+            let outSettings: [String: Any] = [
+                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                AVSampleRateKey: inFormat.sampleRate,
+                AVNumberOfChannelsKey: min(2, inFormat.channelCount),
+                AVEncoderBitRateKey: 256000
+            ]
 
-        await exportSession.export()
+            let outputFile = try AVAudioFile(
+                forWriting: tempTarget,
+                settings: outSettings,
+                commonFormat: inFormat.commonFormat,
+                interleaved: inFormat.isInterleaved
+            )
 
-        if exportSession.status == .completed && FileManager.default.fileExists(atPath: tempTarget.path) {
+            if let buffer = AVAudioPCMBuffer(pcmFormat: inFormat, frameCapacity: 8192) {
+                while inputFile.framePosition < inputFile.length {
+                    let framesToRead = AVAudioFrameCount(min(8192, inputFile.length - inputFile.framePosition))
+                    try inputFile.read(into: buffer, frameCount: framesToRead)
+                    try outputFile.write(from: buffer)
+                }
+            }
+
             let attr = try? FileManager.default.attributesOfItem(atPath: tempTarget.path)
             let size = (attr?[.size] as? Int64) ?? 0
             if size > 20480 {
                 if FileManager.default.fileExists(atPath: targetM4A.path) {
                     try? FileManager.default.removeItem(at: targetM4A)
                 }
-                try? FileManager.default.moveItem(at: tempTarget, to: targetM4A)
+                try FileManager.default.moveItem(at: tempTarget, to: targetM4A)
                 if sourceURL.path != targetM4A.path && FileManager.default.fileExists(atPath: sourceURL.path) {
                     try? FileManager.default.removeItem(at: sourceURL)
                 }
                 return targetM4A
             }
+        } catch {
+            try? FileManager.default.removeItem(at: tempTarget)
         }
 
-        try? FileManager.default.removeItem(at: tempTarget)
+        // 2. Secondary fallback: AVAssetExportSession
+        let asset = AVURLAsset(url: sourceURL)
+        if let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) {
+            exportSession.outputURL = tempTarget
+            exportSession.outputFileType = .m4a
+            await exportSession.export()
+
+            if exportSession.status == .completed && FileManager.default.fileExists(atPath: tempTarget.path) {
+                let attr = try? FileManager.default.attributesOfItem(atPath: tempTarget.path)
+                let size = (attr?[.size] as? Int64) ?? 0
+                if size > 20480 {
+                    if FileManager.default.fileExists(atPath: targetM4A.path) {
+                        try? FileManager.default.removeItem(at: targetM4A)
+                    }
+                    try? FileManager.default.moveItem(at: tempTarget, to: targetM4A)
+                    if sourceURL.path != targetM4A.path && FileManager.default.fileExists(atPath: sourceURL.path) {
+                        try? FileManager.default.removeItem(at: sourceURL)
+                    }
+                    return targetM4A
+                }
+            }
+            try? FileManager.default.removeItem(at: tempTarget)
+        }
+
         return sourceURL
     }
 
