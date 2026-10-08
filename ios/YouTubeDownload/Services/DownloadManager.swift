@@ -58,6 +58,7 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
         self.downloadTask?.cancel()
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
+        request.setValue("https://loader.to/", forHTTPHeaderField: "Referer")
         self.downloadTask = session.downloadTask(with: request)
         self.downloadTask?.resume()
     }
@@ -73,7 +74,10 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         if totalBytesExpectedToWrite > 0 {
             let frac = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-            progressCallback?(min(1.0, max(0.0, frac)))
+            let clamped = min(1.0, max(0.0, frac))
+            DispatchQueue.main.async { [weak self] in
+                self?.progressCallback?(clamped)
+            }
         }
     }
 
@@ -85,15 +89,21 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
                 try FileManager.default.removeItem(at: destURL)
             }
             try FileManager.default.moveItem(at: location, to: destURL)
-            completionCallback?(.success(destURL))
+            DispatchQueue.main.async { [weak self] in
+                self?.completionCallback?(.success(destURL))
+            }
         } catch {
-            completionCallback?(.failure(error))
+            DispatchQueue.main.async { [weak self] in
+                self?.completionCallback?(.failure(error))
+            }
         }
     }
 
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
-            completionCallback?(.failure(error))
+            DispatchQueue.main.async { [weak self] in
+                self?.completionCallback?(.failure(error))
+            }
         }
     }
 
@@ -102,7 +112,9 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
         let ext = fileURL.pathExtension.lowercased()
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             guard status == .authorized || status == .limited else {
-                completion(false, NSError(domain: "Photos", code: 403, userInfo: [NSLocalizedDescriptionKey: "Photo library access denied"]))
+                DispatchQueue.main.async {
+                    completion(false, NSError(domain: "Photos", code: 403, userInfo: [NSLocalizedDescriptionKey: "Photo library access denied"]))
+                }
                 return
             }
 

@@ -74,30 +74,33 @@ public final class YouTubeViewModel: ObservableObject {
                 // 1. Direct Thumbnail Download
                 if format.type == .utility {
                     guard let thumbUrl = URL(string: video.maxResThumbnailUrl.isEmpty ? video.thumbnailUrl : video.maxResThumbnailUrl) else {
-                        conversionState = .error("Invalid thumbnail URL.")
+                        self.conversionState = .error("Invalid thumbnail URL.")
                         return
                     }
 
-                    conversionState = .downloading(progress: 0.1, status: "Saving HD Thumbnail...")
+                    self.conversionState = .downloading(progress: 0.1, status: "Saving HD Thumbnail...")
                     let fileName = DownloadManager.sanitizeFileName("\(video.title)_Thumbnail", extension: "jpg")
 
-                    DownloadManager.shared.startDownload(from: thumbUrl, fileName: fileName) { [weak self] p in
-                        self?.conversionState = .downloading(progress: p, status: "Downloading: \(Int(p * 100))%")
-                    } completion: { [weak self] result in
-                        guard let self = self else { return }
-                        switch result {
-                        case .success(let fileURL):
-                            self.conversionState = .success(fileURL: fileURL, fileName: fileName)
-                            self.addHistory(video: video, format: format, fileName: fileName, fileURL: fileURL)
-                        case .failure(let err):
-                            self.conversionState = .error("Download failed: \(err.localizedDescription)")
+                    DownloadManager.shared.startDownload(from: thumbUrl, fileName: fileName) { p in
+                        Task { @MainActor in
+                            self.conversionState = .downloading(progress: p, status: "Downloading: \(Int(p * 100))%")
+                        }
+                    } completion: { result in
+                        Task { @MainActor in
+                            switch result {
+                            case .success(let fileURL):
+                                self.conversionState = .success(fileURL: fileURL, fileName: fileName)
+                                self.addHistory(video: video, format: format, fileName: fileName, fileURL: fileURL)
+                            case .failure(let err):
+                                self.conversionState = .error("Download failed: \(err.localizedDescription)")
+                            }
                         }
                     }
                     return
                 }
 
                 // 2. Video / Audio Conversion via Loader.to
-                conversionState = .analyzing("Requesting \(format.label) media stream...")
+                self.conversionState = .analyzing("Requesting \(format.label) media stream...")
                 let startResult = try await NetworkService.shared.startConversion(
                     format: format.id,
                     videoUrl: video.cleanUrl
@@ -130,7 +133,7 @@ public final class YouTubeViewModel: ObservableObject {
 
                 guard let readyDownloadUrlString = finalDownloadUrl,
                       let readyDownloadUrl = URL(string: readyDownloadUrlString) else {
-                    conversionState = .error("Conversion timed out. The server is busy, please try another quality.")
+                    self.conversionState = .error("Conversion timed out. The server is busy, please try another quality.")
                     return
                 }
 
@@ -141,21 +144,24 @@ public final class YouTubeViewModel: ObservableObject {
 
                 self.conversionState = .downloading(progress: 0.05, status: "Downloading file...")
 
-                DownloadManager.shared.startDownload(from: readyDownloadUrl, fileName: targetFileName) { [weak self] progress in
-                    self?.conversionState = .downloading(progress: progress, status: "Downloading: \(Int(progress * 100))%")
-                } completion: { [weak self] result in
-                    guard let self = self else { return }
-                    switch result {
-                    case .success(let localURL):
-                        self.conversionState = .success(fileURL: localURL, fileName: targetFileName)
-                        self.addHistory(video: video, format: format, fileName: targetFileName, fileURL: localURL)
-                    case .failure(let err):
-                        self.conversionState = .error("Save error: \(err.localizedDescription)")
+                DownloadManager.shared.startDownload(from: readyDownloadUrl, fileName: targetFileName) { progress in
+                    Task { @MainActor in
+                        self.conversionState = .downloading(progress: progress, status: "Downloading: \(Int(progress * 100))%")
+                    }
+                } completion: { result in
+                    Task { @MainActor in
+                        switch result {
+                        case .success(let localURL):
+                            self.conversionState = .success(fileURL: localURL, fileName: targetFileName)
+                            self.addHistory(video: video, format: format, fileName: targetFileName, fileURL: localURL)
+                        case .failure(let err):
+                            self.conversionState = .error("Save error: \(err.localizedDescription)")
+                        }
                     }
                 }
 
             } catch {
-                conversionState = .error("Error: \(error.localizedDescription)")
+                self.conversionState = .error("Error: \(error.localizedDescription)")
             }
         }
     }
