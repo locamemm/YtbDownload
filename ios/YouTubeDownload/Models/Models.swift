@@ -103,7 +103,7 @@ public struct MediaFormat: Identifiable, Hashable {
     public static let audioM4A = MediaFormat(
         id: "aac",
         label: "M4A / AAC Audio",
-        subLabel = "Apple Crisp Audio • AAC",
+        subLabel: "Apple Crisp Audio • AAC",
         type: .audio,
         fileExtension: "aac",
         mimeType: "audio/aac"
