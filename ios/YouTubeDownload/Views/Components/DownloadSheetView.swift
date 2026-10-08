@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import AVFoundation
 
 public struct DownloadSheetView: View {
     public let video: VideoItem
@@ -10,6 +11,8 @@ public struct DownloadSheetView: View {
     @State private var showShareSheet: Bool = false
     @State private var shareURL: URL? = nil
     @State private var photoSavedNotice: String? = nil
+    @State private var audioPlayer: AVPlayer? = nil
+    @State private var isPlayingAudio: Bool = false
 
     public var body: some View {
         NavigationView {
@@ -102,6 +105,10 @@ public struct DownloadSheetView: View {
                 if let url = shareURL {
                     ShareSheet(items: [url])
                 }
+            }
+            .onDisappear {
+                audioPlayer?.pause()
+                isPlayingAudio = false
             }
         }
     }
@@ -242,8 +249,39 @@ public struct DownloadSheetView: View {
             }
 
             VStack(spacing: 10) {
-                // Save to Photos if video or image
                 let ext = fileURL.pathExtension.lowercased()
+
+                // Audio Playback Preview for M4A / MP3 / WAV
+                if ext == "m4a" || ext == "mp3" || ext == "wav" {
+                    Button(action: {
+                        if isPlayingAudio {
+                            audioPlayer?.pause()
+                            isPlayingAudio = false
+                        } else {
+                            if audioPlayer == nil {
+                                audioPlayer = AVPlayer(url: fileURL)
+                            }
+                            audioPlayer?.play()
+                            isPlayingAudio = true
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: isPlayingAudio ? "pause.circle.fill" : "play.circle.fill")
+                                .font(.system(size: 18))
+                            Text(isPlayingAudio ? "Tạm Dừng Audio" : "Nghe Thử Ngay (\(ext.uppercased()))")
+                        }
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient(colors: [AppTheme.mintAccent, AppTheme.cyanAccent], startPoint: .leading, endPoint: .trailing)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+
+                // Save to Photos if video or image
                 if ext == "mp4" || ext == "mov" || ext == "jpg" || ext == "png" {
                     Button(action: {
                         DownloadManager.shared.saveMediaToPhotosAlbum(fileURL: fileURL) { success, err in

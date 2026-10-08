@@ -65,7 +65,7 @@ enum class MediaFormat(
         subLabel = "AAC • Crisp Audio",
         type = FormatType.AUDIO,
         fileExtension = "m4a",
-        mimeType = "audio/mp4"
+        mimeType = "audio/x-m4a"
     ),
     AUDIO_WAV(
         formatKey = "wav",

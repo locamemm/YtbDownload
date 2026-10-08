@@ -38,13 +38,25 @@ object AndroidDownloadManagerHelper {
             val fileName = sanitizeFileName(title, extension)
             val uri = Uri.parse(url)
 
+            val cleanExt = extension.removePrefix(".").lowercase()
+            val resolvedMimeType = when (cleanExt) {
+                "m4a" -> "audio/x-m4a"
+                "mp3" -> "audio/mpeg"
+                "wav" -> "audio/wav"
+                "mp4" -> "video/mp4"
+                "jpg", "jpeg" -> "image/jpeg"
+                else -> mimeType
+            }
+
             val request = DownloadManager.Request(uri).apply {
                 setTitle(fileName)
                 setDescription("Downloading YouTube Media...")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setAllowedOverMetered(true)
                 setAllowedOverRoaming(true)
-                setMimeType(mimeType)
+                addRequestHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36")
+                addRequestHeader("Referer", "https://loader.to/")
+                setMimeType(resolvedMimeType)
                 setDestinationInExternalPublicDir(
                     Environment.DIRECTORY_DOWNLOADS,
                     "YouTubeDownloads/$fileName"
