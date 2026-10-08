@@ -3,11 +3,17 @@ import UIKit
 
 public struct HomeView: View {
     @ObservedObject public var viewModel: YouTubeViewModel
+    @FocusState private var isSearchFocused: Bool
 
     private let quickTags = [
         "Trending", "Nhạc Trẻ 2024", "Remix Bass Cực Căng", "Lofi Chill",
         "Rap Việt", "Podcast", "Shorts Hay", "4K HDR Nature"
     ]
+
+    private func hideKeyboard() {
+        isSearchFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
 
     public var body: some View {
         ZStack {
@@ -39,7 +45,9 @@ public struct HomeView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 90)
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .refreshable {
+                    hideKeyboard()
                     viewModel.search()
                 }
             }
@@ -108,7 +116,9 @@ public struct HomeView: View {
                     .font(.system(size: 14))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
+                    .focused($isSearchFocused)
                     .onSubmit {
+                        hideKeyboard()
                         viewModel.search()
                     }
 
@@ -124,6 +134,7 @@ public struct HomeView: View {
 
                 // Paste from clipboard button
                 Button(action: {
+                    hideKeyboard()
                     if let string = UIPasteboard.general.string, !string.isEmpty {
                         viewModel.searchQuery = string
                         viewModel.search()
@@ -147,6 +158,7 @@ public struct HomeView: View {
 
             // Submit Button
             Button(action: {
+                hideKeyboard()
                 viewModel.search()
             }) {
                 HStack(spacing: 8) {
@@ -171,6 +183,7 @@ public struct HomeView: View {
             HStack(spacing: 8) {
                 ForEach(quickTags, id: \.self) { tag in
                     Button(action: {
+                        hideKeyboard()
                         viewModel.search(keyword: tag)
                     }) {
                         Text(tag)

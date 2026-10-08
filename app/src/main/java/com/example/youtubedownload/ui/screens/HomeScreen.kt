@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -69,6 +71,13 @@ fun HomeScreen(
     val selectedVideo by viewModel.selectedVideo.collectAsState()
     val conversionState by viewModel.conversionState.collectAsState()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val hideKeyboard = {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+    }
 
     Box(
         modifier = modifier
@@ -86,7 +95,10 @@ fun HomeScreen(
             StickySearchBar(
                 query = searchQuery,
                 onQueryChange = viewModel::onSearchQueryChange,
-                onSearch = { viewModel.search() },
+                onSearch = {
+                    hideKeyboard()
+                    viewModel.search()
+                },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -95,6 +107,7 @@ fun HomeScreen(
             // Trending / Quick Tags
             QuickTagsRow(
                 onSelectTag = { tag ->
+                    hideKeyboard()
                     viewModel.onSearchQueryChange(tag)
                     viewModel.search(tag)
                 }
