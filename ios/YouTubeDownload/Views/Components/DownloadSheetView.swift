@@ -11,6 +11,9 @@ public struct DownloadSheetView: View {
     @State private var showShareSheet: Bool = false
     @State private var shareURL: URL? = nil
     @State private var photoSavedNotice: String? = nil
+    @State private var showDocumentPicker: Bool = false
+    @State private var documentTargetURL: URL? = nil
+    @State private var documentSavedNotice: String? = nil
     @State private var audioPlayer: AVPlayer? = nil
     @State private var isPlayingAudio: Bool = false
 
@@ -106,6 +109,13 @@ public struct DownloadSheetView: View {
                     ShareSheet(items: [url])
                 }
             }
+            .sheet(isPresented: $showDocumentPicker) {
+                if let url = documentTargetURL {
+                    DocumentPicker(fileURL: url) { savedURL in
+                        self.documentSavedNotice = "✓ Đã lưu thành công vào: \(savedURL.lastPathComponent)"
+                    }
+                }
+            }
             .onDisappear {
                 audioPlayer?.pause()
                 isPlayingAudio = false
@@ -119,7 +129,7 @@ public struct DownloadSheetView: View {
             // Category Tabs
             HStack(spacing: 8) {
                 categoryTabButton(title: "Video (MP4)", type: .video, icon: "film")
-                categoryTabButton(title: "Audio (MP3)", type: .audio, icon: "waveform")
+                categoryTabButton(title: "Audio (M4A/MP3)", type: .audio, icon: "waveform")
                 categoryTabButton(title: "Ảnh Bìa", type: .utility, icon: "photo")
             }
 
@@ -248,6 +258,12 @@ public struct DownloadSheetView: View {
                     .foregroundColor(AppTheme.mintAccent)
             }
 
+            if let docNotice = documentSavedNotice {
+                Text(docNotice)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.cyanAccent)
+            }
+
             VStack(spacing: 10) {
                 let ext = fileURL.pathExtension.lowercased()
 
@@ -279,6 +295,27 @@ public struct DownloadSheetView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                }
+
+                // Choose Save Destination (Document Picker / Files)
+                Button(action: {
+                    self.documentTargetURL = fileURL
+                    self.showDocumentPicker = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Chọn Nơi Lưu Tệp (Lưu Vào Tệp / Files)")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(colors: [AppTheme.purpleAccent, AppTheme.cyanAccent], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: AppTheme.purpleAccent.opacity(0.35), radius: 6, x: 0, y: 3)
                 }
 
                 // Save to Photos if video or image

@@ -1,6 +1,7 @@
 import Foundation
 import Photos
 import UIKit
+import AVFoundation
 
 public final class DownloadManager: NSObject, ObservableObject, URLSessionDownloadDelegate {
     public static let shared = DownloadManager()
@@ -82,6 +83,31 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
     }
 
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // 1. Verify HTTP Response Status
+        if let http = downloadTask.response as? HTTPURLResponse, http.statusCode != 200 {
+            let err = NSError(domain: "DownloadManager", code: http.statusCode, userInfo: [
+                NSLocalizedDescriptionKey: "Máy chủ trả về lỗi HTTP \(http.statusCode). Vui lòng thử lại chất lượng khác."
+            ])
+            DispatchQueue.main.async { [weak self] in
+                self?.completionCallback?(.failure(err))
+            }
+            return
+        }
+
+        // 2. Verify Downloaded File Size (prevent saving corrupt HTML/tiny fragments)
+        let attr = try? FileManager.default.attributesOfItem(atPath: location.path)
+        let fileSize = (attr?[.size] as? Int64) ?? 0
+        if fileSize < 20480 { // Under 20 KB
+            let err = NSError(domain: "DownloadManager", code: 422, userInfo: [
+                NSLocalizedDescriptionKey: "Tệp tải về không hoàn chỉnh hoặc quá nhỏ (\(fileSize) bytes). Vui lòng thử lại."
+            ])
+            DispatchQueue.main.async { [weak self] in
+                self?.completionCallback?(.failure(err))
+            }
+            return
+        }
+
+        // 3. Move File to Final Destination
         let destURL = downloadsDirectory.appendingPathComponent(destinationFileName)
 
         do {
@@ -105,6 +131,40 @@ public final class DownloadManager: NSObject, ObservableObject, URLSessionDownlo
                 self?.completionCallback?(.failure(error))
             }
         }
+    }
+
+    // MARK: - Native M4A Remuxing / Transcoding (Apple Certified)
+    public func convertToNativeM4A(sourceURL: URL) async -> URL {
+        let asset = AVURLAsset(url: sourceURL)
+        let targetM4A = sourceURL.deletingPathExtension().appendingPathExtension("m4a")
+        let tempTarget = downloadsDirectory.appendingPathComponent("remux_\(UUID().uuidString).m4a")
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            return sourceURL
+        }
+
+        exportSession.outputURL = tempTarget
+        exportSession.outputFileType = .m4a
+
+        await exportSession.export()
+
+        if exportSession.status == .completed && FileManager.default.fileExists(atPath: tempTarget.path) {
+            let attr = try? FileManager.default.attributesOfItem(atPath: tempTarget.path)
+            let size = (attr?[.size] as? Int64) ?? 0
+            if size > 20480 {
+                if FileManager.default.fileExists(atPath: targetM4A.path) {
+                    try? FileManager.default.removeItem(at: targetM4A)
+                }
+                try? FileManager.default.moveItem(at: tempTarget, to: targetM4A)
+                if sourceURL.path != targetM4A.path && FileManager.default.fileExists(atPath: sourceURL.path) {
+                    try? FileManager.default.removeItem(at: sourceURL)
+                }
+                return targetM4A
+            }
+        }
+
+        try? FileManager.default.removeItem(at: tempTarget)
+        return sourceURL
     }
 
     // MARK: - Save to Photos Library

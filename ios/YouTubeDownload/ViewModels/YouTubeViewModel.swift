@@ -100,9 +100,11 @@ public final class YouTubeViewModel: ObservableObject {
                 }
 
                 // 2. Video / Audio Conversion via Loader.to
+                // For M4A audio, request clean "aac" stream from loader.to to bypass its broken m4a encoder
+                let serverFormat = (format.id == "m4a" || format.id == "aac") ? "aac" : format.id
                 self.conversionState = .analyzing("Requesting \(format.label) media stream...")
                 let startResult = try await NetworkService.shared.startConversion(
-                    format: format.id,
+                    format: serverFormat,
                     videoUrl: video.cleanUrl
                 )
 
@@ -151,9 +153,19 @@ public final class YouTubeViewModel: ObservableObject {
                 } completion: { result in
                     Task { @MainActor in
                         switch result {
-                        case .success(let localURL):
-                            self.conversionState = .success(fileURL: localURL, fileName: targetFileName)
-                            self.addHistory(video: video, format: format, fileName: targetFileName, fileURL: localURL)
+                        case .success(let downloadedURL):
+                            Task {
+                                var finalURL = downloadedURL
+                                // If format is M4A, package into certified Apple M4A container
+                                if format.type == .audio && (format.fileExtension == "m4a" || format.id == "m4a" || format.id == "aac") {
+                                    finalURL = await DownloadManager.shared.convertToNativeM4A(sourceURL: downloadedURL)
+                                }
+                                await MainActor.run {
+                                    let finalName = finalURL.lastPathComponent
+                                    self.conversionState = .success(fileURL: finalURL, fileName: finalName)
+                                    self.addHistory(video: video, format: format, fileName: finalName, fileURL: finalURL)
+                                }
+                            }
                         case .failure(let err):
                             self.conversionState = .error("Save error: \(err.localizedDescription)")
                         }

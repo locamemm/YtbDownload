@@ -7,6 +7,8 @@ public struct HistoryView: View {
     @State private var showClearConfirm: Bool = false
     @State private var shareURL: URL? = nil
     @State private var showShareSheet: Bool = false
+    @State private var showDocumentPicker: Bool = false
+    @State private var documentTargetURL: URL? = nil
 
     public var body: some View {
         ZStack {
@@ -48,6 +50,11 @@ public struct HistoryView: View {
         .sheet(isPresented: $showShareSheet) {
             if let url = shareURL {
                 ShareSheet(items: [url])
+            }
+        }
+        .sheet(isPresented: $showDocumentPicker) {
+            if let url = documentTargetURL {
+                DocumentPicker(fileURL: url)
             }
         }
     }
@@ -157,6 +164,19 @@ public struct HistoryView: View {
             // Action Buttons
             HStack(spacing: 8) {
                 if fileExists {
+                    Button(action: {
+                        self.documentTargetURL = fileURL
+                        self.showDocumentPicker = true
+                    }) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(AppTheme.mintAccent)
+                            .frame(width: 32, height: 32)
+                            .background(AppTheme.surfaceElevated)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
                     Button(action: {
                         self.shareURL = fileURL
                         self.showShareSheet = true

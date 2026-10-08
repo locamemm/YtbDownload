@@ -101,12 +101,12 @@ public struct MediaFormat: Identifiable, Hashable {
         mimeType: "audio/mpeg"
     )
     public static let audioM4A = MediaFormat(
-        id: "aac",
-        label: "M4A / AAC Audio",
-        subLabel: "Apple Crisp Audio • AAC",
+        id: "m4a",
+        label: "M4A Audio",
+        subLabel: "Apple AAC • 256 kbps M4A",
         type: .audio,
-        fileExtension: "aac",
-        mimeType: "audio/aac"
+        fileExtension: "m4a",
+        mimeType: "audio/mp4"
     )
     public static let audioWAV = MediaFormat(
         id: "wav",
